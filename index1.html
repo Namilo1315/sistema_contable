@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ERP Local - Mini Sistema Profesional</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/shim.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --accent:#0d6efd;
+      --muted:#f6f8fb;
+      --card:#ffffff;
+      --green:#28a745;
+      --red:#dc3545;
+      --violet:#6f42c1;
+      --orange:#fd7e14;
+    }
+    body{background:linear-gradient(180deg,#f8fbff 0%,var(--muted) 100%);font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    .sidebar{min-height:100vh;background:var(--card);border-right:1px solid #070707}
+    .nav-link.active{background:linear-gradient(90deg, rgba(13,110,253,0.08), transparent);border-left:4px solid var(--accent); color: #0d6efd; font-weight: 600;}
+    .card-compact{box-shadow:0 10px 30px rgba(12, 13, 14, 0.245);border-radius:12px}
+    .small-muted{font-size:.85rem;color:#000000}
+    .stat-card{border-radius:12px;padding:18px;color:#fff}
+    .stat-ventas{background:linear-gradient(90deg,var(--accent),#3aa0ff)}
+    .stat-compras{background:linear-gradient(90deg,var(--red),#ff6b6b)}
+    .stat-neto{background:linear-gradient(90deg,var(--green),#66d06b)}
+    .stat-docs{background:linear-gradient(90deg,var(--violet),#9f7fff)}
+    table td, table th{vertical-align:middle}
+    .chart-card{padding:16px;border-radius:12px}
+    @media (max-width:768px){.sidebar{display:none}}
+ 
+  </style>
+</head>
+<body>
+<div class="d-flex">
+  <!-- SIDEBAR -->
+  <aside class="sidebar p-3 col-12 col-md-3 col-lg-2">
+    <h5 class="mb-3">ERP Local</h5>
+    <div class="list-group">
+      <button class="list-group-item list-group-item-action nav-link active" data-section="dashboard">Dashboard</button>
+      <button class="list-group-item list-group-item-action nav-link" data-section="facturas">Facturas</button>
+      
+      <button class="list-group-item list-group-item-action nav-link" data-section="productos">Productos</button>
+      <button class="list-group-item list-group-item-action nav-link" data-section="reportes">Reportes</button>
+      <button class="list-group-item list-group-item-action nav-link" data-section="exportar">Exportar</button>
+    </div>
+    <hr>
+    <div class="small-muted">Estado local: <strong id="statusLocal">OK</strong></div>
+    <div class="mt-3 small-muted">Guardar automático en <code>localStorage</code></div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="p-4 flex-grow-1">
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 id="sectionTitle">Dashboard</h3>
+      <div>
+        <button class="btn btn-outline-secondary me-2" id="btnBackup">Respaldar (.json)</button>
+        <button class="btn btn-outline-danger" id="btnReset">Borrar datos</button>
+      </div>
+    </div>
+
+    <!-- SECTIONS -->
+    <section id="dashboard" class="section">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <div class="stat-card stat-ventas">
+            <div class="small-muted">Total Ventas</div>
+            <h4 id="totalVentas">$0.00</h4>
+            <div class="small-muted">Último mes: <span id="lastMonthVentas">$0.00</span></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card stat-compras">
+            <div class="small-muted">Total Compras</div>
+            <h4 id="totalCompras">$0.00</h4>
+            <div class="small-muted">Último mes: <span id="lastMonthCompras">$0.00</span></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card stat-neto">
+            <div class="small-muted">Resultado Neto</div>
+            <h4 id="resultado">$0.00</h4>
+            <div class="small-muted">Ventas - Compras</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card stat-docs">
+            <div class="small-muted">Documentos</div>
+            <h4 id="totalDocs">0</h4>
+            <div class="small-muted">Tipos: A/B/C, NC, ND</div>
+          </div>
+        </div>
+      </div>
+
+
+         
+
+      <div class="row g-3 ">
+        
+        <div class="col-lg-8 col-md-12">
+          <div class="card chart-card card-compact p-3">
+            <h6>Ventas vs Compras (Mensual)</h6>
+            <canvas id="chartBar"  width="400" height="186"></canvas>
+          </div>
+        </div>
+
+        <div class="col-lg-4 col-md-12">
+          <div class="card chart-card card-compact p-3 hola">
+            <h6>Tipos de Documentos</h6>
+            <canvas id="chartDonut" ></canvas>
+            
+          </div>
+        </div>
+        <div class="col-12">
+            <div class="card chart-card card-compact p-3 ">
+              <h6>Evolución Anual (Línea de Tiempo)</h6>
+              <canvas id="chartLine" height="130"></canvas>
+            </div>
+          </div> 
+        
+      </div>
+
+    </section>
+    <section id="facturas" class="section d-none">
+      <!-- FORMULARIO PARA CARGAR FACTURA MANUAL -->
+      <div class="card p-3 mb-3">
+        <h6>Cargar Factura Manualmente</h6>
+        <form id="formFactura" class="row g-2 align-items-end">
+          <div class="col-md-2">
+            <label class="form-label">Fecha</label>
+            <input type="date" id="f_fecha" class="form-control" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Nº</label>
+            <input type="text" id="f_numero" class="form-control" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Documento</label>
+            <select id="f_documento" class="form-select">
+              <option value="Factura A">Factura A</option>
+              <option value="Factura B">Factura B</option>
+              <option value="Factura C">Factura C</option>
+              <option value="Nota Crédito">Nota Crédito</option>
+              <option value="Nota Débito">Nota Débito</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Cliente</label>
+            <select id="f_cliente" class="form-select"></select>
+          </div>
+          <div class="col-md-1">
+            <label class="form-label">Tipo</label>
+            <select id="f_tipo" class="form-select" required>
+              <option value="Venta">Venta</option>
+              <option value="Compra">Compra</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Monto</label>
+            <input type="number" step="0.01" id="f_monto" class="form-control" required>
+          </div>
+          <div class="col-12 d-grid mt-2">
+            <button class="btn btn-primary" type="submit">Agregar Factura</button>
+          </div>
+        </form>
+      </div>
+    
+      <!-- IMPORTAR FACTURAS DESDE EXCEL -->
+      <div class="card p-3 mb-3">
+        <label class="form-label">Importar Facturas desde Excel</label>
+        <input type="file" id="importExcelFacturas" class="form-control" accept=".xlsx,.xls">
+      </div>
+    
+      <!-- LISTADO DE FACTURAS -->
+      <div class="card p-3">
+        <div class="d-flex justify-content-between mb-2">
+          <div>
+            <input type="text" id="buscarFact" class="form-control" placeholder="Buscar por número, cliente...">
+          </div>
+          <div class="d-flex gap-2">
+            <select id="filterTipo" class="form-select">
+              <option value="">Todos</option>
+              <option value="Venta">Ventas</option>
+              <option value="Compra">Compras</option>
+            </select>
+            <button class="btn btn-outline-secondary" id="btnExportFact">Exportar Excel</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Fecha</th>
+                <th>Nº</th>
+                <th>Documento</th>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th>Monto</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tblFacturas"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+    
+
+    <section id="productos" class="section d-none">
+      <div class="card p-3 mb-3">
+        <form id="formProducto" class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label">Producto / Servicio</label>
+            <input type="text" id="p_nombre" class="form-control" required>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Precio</label>
+            <input type="number" step="0.01" id="p_precio" class="form-control" required>
+          </div>
+          <div class="col-md-3 d-grid">
+            <button class="btn btn-primary mt-4" type="submit">Agregar Producto</button>
+          </div>
+        </form>
+      </div>
+      <div class="card p-3">
+        <div class="table-responsive">
+          <table class="table table-striped mb-0">
+            <thead><tr><th>Nombre</th><th>Precio</th><th>Acciones</th></tr></thead>
+            <tbody id="tblProductos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="reportes" class="section d-none">
+      <div class="card p-3">
+        <h6>Reportes</h6>
+        <div class="row mt-2">
+          <div class="col-md-3">
+            <label class="form-label">Desde</label>
+            <input type="date" id="r_desde" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Hasta</label>
+            <input type="date" id="r_hasta" class="form-control">
+          </div>
+          <div class="col-md-3 d-grid">
+            <button class="btn btn-primary mt-4" id="btnGenerarReporte">Generar</button>
+          </div>
+        </div>
+        <hr>
+        <div id="reporteCont"></div>
+      </div>
+    </section>
+
+    <section id="exportar" class="section d-none">
+      <div class="card p-3">
+        <h6>Exportar todo</h6>
+        <p class="small-muted">Descarga un respaldo completo en .xlsx o .json para migrar a otro sistema.</p>
+        <div class="d-flex gap-2">
+          <button class="btn btn-success" id="btnExportAllXLSX">Exportar .xlsx</button>
+          <button class="btn btn-secondary" id="btnExportAllJSON">Exportar .json</button>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title">Editar Factura</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="formEdit">
+          <input type="hidden" id="e_index">
+          <div class="mb-2"><label class="form-label">Fecha</label><input type="date" id="e_fecha" class="form-control"></div>
+          <div class="mb-2"><label class="form-label">Nº</label><input type="text" id="e_numero" class="form-control"></div>
+          <div class="mb-2"><label class="form-label">Monto</label><input type="number" step="0.01" id="e_monto" class="form-control"></div>
+          <div class="d-grid"><button class="btn btn-primary">Guardar</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', ()=>{
+  
+    // ----------------------
+    // CONSTANTES / DATOS
+    // ----------------------
+    const LS_KEYS = { INVOICES:'erp_invoices_v2', CLIENTS:'erp_clients_v2', PRODUCTS:'erp_products_v2' };
+    let invoices = JSON.parse(localStorage.getItem(LS_KEYS.INVOICES)) || [];
+    let clients  = JSON.parse(localStorage.getItem(LS_KEYS.CLIENTS))  || [];
+    let products = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCTS)) || [];
+  
+    // UI refs
+    const sections     = document.querySelectorAll('.section');
+    const navButtons   = document.querySelectorAll('.nav-link');
+    const sectionTitle = document.getElementById('sectionTitle');
+  
+    // Charts
+    let chartBar = null, chartDonut = null, chartLine = null, rChartInstance = null;
+  
+    // ----------------------
+    // UTILIDADES
+    // ----------------------
+    const saveAll = ()=> {
+      localStorage.setItem(LS_KEYS.INVOICES, JSON.stringify(invoices));
+      localStorage.setItem(LS_KEYS.CLIENTS,  JSON.stringify(clients));
+      localStorage.setItem(LS_KEYS.PRODUCTS, JSON.stringify(products));
+    };
+  
+    const switchSection = (name)=>{
+      sections.forEach(s=> s.classList.add('d-none'));
+      const el = document.getElementById(name); if(el) el.classList.remove('d-none');
+      if(sectionTitle && name) sectionTitle.textContent = name.charAt(0).toUpperCase()+name.slice(1);
+      navButtons.forEach(n=> n.classList.remove('active'));
+      const nav = document.querySelector(`[data-section="${name}"]`); if(nav) nav.classList.add('active');
+      if(name==='dashboard') updateDashboard();
+    };
+  
+    const renderNav = ()=>{ const nav = document.querySelector('[data-section="dashboard"]'); if(nav) nav.classList.add('active'); };
+  
+    window.addEventListener('storage', ()=>{
+      invoices = JSON.parse(localStorage.getItem(LS_KEYS.INVOICES)) || [];
+      clients  = JSON.parse(localStorage.getItem(LS_KEYS.CLIENTS))  || [];
+      products = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCTS)) || [];
+      renderAll();
+    });
+  
+    // ----------------------
+    // PRODUCTOS
+    // ----------------------
+    const formProducto = document.getElementById('formProducto');
+    if(formProducto){
+      formProducto.addEventListener('submit', e=>{
+        e.preventDefault();
+        const nombre = document.getElementById('p_nombre').value.trim();
+        const precio = parseFloat(document.getElementById('p_precio').value) || 0;
+        if(!nombre) return;
+        products.push({id: crypto.randomUUID(), nombre, precio});
+        saveAll(); renderProductsTable(); formProducto.reset();
+      });
+    }
+  
+    const renderProductsTable = ()=>{
+      const tbody = document.getElementById('tblProductos'); if(!tbody) return;
+      tbody.innerHTML = '';
+      products.forEach((p,i)=>{
+        tbody.innerHTML += `<tr>
+          <td>${p.nombre}</td>
+          <td>$${(+p.precio||0).toFixed(2)}</td>
+          <td><button class='btn btn-sm btn-danger' onclick='deleteProduct("${p.id}")'>Eliminar</button></td>
+        </tr>`;
+      });
+    };
+    window.deleteProduct = id=>{
+      const idx = products.findIndex(p=>p.id===id); if(idx===-1) return;
+      if(!confirm('Eliminar producto?')) return;
+      products.splice(idx,1); saveAll(); renderProductsTable();
+    };
+  
+    // ----------------------
+    // CLIENTES
+    // ----------------------
+    const renderClientes = ()=>{
+      const tbody = document.getElementById('tblClientes');
+      const selClientes = document.getElementById('f_cliente');
+      if(tbody) tbody.innerHTML = '';
+      if(selClientes) selClientes.innerHTML = '';
+      clients.forEach((c, idx)=>{
+        if(tbody){
+          tbody.innerHTML += `<tr>
+            <td>${c.nombre}</td>
+            <td>${c.doc||''}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-secondary" onclick="editCliente('${c.id}')">Editar</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteCliente('${c.id}')">Eliminar</button>
+            </td>
+          </tr>`;
+        }
+        if(selClientes){
+          selClientes.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+        }
+      });
+    };
+  
+    const formCliente = document.getElementById('formCliente');
+    if(formCliente){
+      formCliente.addEventListener('submit', e=>{
+        e.preventDefault();
+        const nombre = document.getElementById('c_nombre').value.trim();
+        const doc    = document.getElementById('c_doc').value.trim();
+        if(!nombre) return;
+        clients.push({id: crypto.randomUUID(), nombre, doc});
+        saveAll(); renderClientes(); formCliente.reset();
+      });
+    }
+  
+    window.deleteCliente = id=>{
+      const idx = clients.findIndex(c=>c.id===id); if(idx===-1) return;
+      if(!confirm('Eliminar cliente?')) return;
+      clients.splice(idx,1); saveAll(); renderClientes(); renderFacturas();
+    };
+  
+    window.editCliente = id=>{
+      const c = clients.find(c=>c.id===id); if(!c) return;
+      const nuevoNombre = prompt('Nuevo nombre', c.nombre);
+      if(nuevoNombre !== null) c.nombre = nuevoNombre.trim()||c.nombre;
+      const nuevoDoc = prompt('Nuevo documento', c.doc||'');
+      if(nuevoDoc !== null) c.doc = nuevoDoc.trim();
+      saveAll(); renderClientes();
+      invoices.forEach(inv=>{ if(inv.clienteId===c.id) inv.clienteNombre=c.nombre; });
+      saveAll(); renderFacturas();
+    };
+  
+    // ----------------------
+    // FACTURAS
+    // ----------------------
+    const formFactura = document.getElementById('formFactura');
+    if(formFactura){
+      formFactura.addEventListener('submit', e=>{
+        e.preventDefault();
+        const fecha     = document.getElementById('f_fecha').value;
+        const numero    = document.getElementById('f_numero').value.trim();
+        const docType   = document.getElementById('f_docType')?.value || '';
+        const clienteId = document.getElementById('f_cliente')?.value || null;
+        const tipo      = document.getElementById('f_tipo')?.value || '';
+        const monto     = parseFloat(document.getElementById('f_monto')?.value) || 0;
+        if(!fecha||!numero||!tipo||!monto) return;
+  
+        const cliente = clients.find(c=>c.id===clienteId);
+        invoices.push({
+          id: crypto.randomUUID(),
+          fecha,
+          numero,
+          docType,
+          clienteId: cliente?.id||null,
+          clienteNombre: cliente?.nombre||'SIN NOMBRE',
+          tipo,
+          monto
+        });
+        saveAll(); renderFacturas(); formFactura.reset(); updateDashboard();
+      });
+    }
+  
+    // ----------------------
+    // RENDER FACTURAS
+    // ----------------------
+    const renderFacturas = ()=>{
+      const tbody = document.getElementById('tblFacturas'); if(!tbody) return;
+      const q = (document.getElementById('buscarFact')?.value||'').toLowerCase();
+      const tipoFilter = (document.getElementById('filterTipo')?.value||'');
+      const list = invoices.filter(inv=>{
+        if(tipoFilter && inv.tipo!==tipoFilter) return false;
+        const haystack = `${inv.numero||''} ${(inv.clienteNombre||'')} ${inv.tipo||''} ${(inv.docType||'')}`.toLowerCase();
+        return haystack.includes(q);
+      }).sort((a,b)=> new Date(b.fecha)-new Date(a.fecha));
+  
+      tbody.innerHTML = list.map(inv=>`
+        <tr data-id="${inv.id}">
+          <td>${inv.fecha||''}</td>
+          <td>${inv.numero||''}</td>
+          <td>${inv.docType||''}</td>
+          <td>${inv.clienteNombre||''}</td>
+          <td>${inv.tipo||''}</td>
+          <td>$${(Number(inv.monto)||0).toFixed(2)}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-secondary" onclick="openEdit('${inv.id}')">Editar</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteInvoice('${inv.id}')">Eliminar</button>
+          </td>
+        </tr>`).join('');
+    };
+  
+    window.deleteInvoice = id=>{
+      const idx = invoices.findIndex(inv=>inv.id===id); if(idx===-1) return;
+      if(!confirm('Eliminar factura?')) return;
+      invoices.splice(idx,1); saveAll(); renderFacturas(); updateDashboard();
+    };
+  
+    window.openEdit = id=>{
+      const inv = invoices.find(x=>x.id===id); if(!inv) return;
+      const idxEl   = document.getElementById('e_index');
+      const fechaEl = document.getElementById('e_fecha');
+      const numEl   = document.getElementById('e_numero');
+      const montoEl = document.getElementById('e_monto');
+      if(idxEl)   idxEl.value   = inv.id;
+      if(fechaEl) fechaEl.value = inv.fecha||'';
+      if(numEl)   numEl.value   = inv.numero||'';
+      if(montoEl) montoEl.value = inv.monto||0;
+      const modalEl = document.getElementById('editModal');
+      if(modalEl) new bootstrap.Modal(modalEl).show();
+    };
+  
+    // EDIT FORM
+    (()=>{
+      const formEdit = document.getElementById('formEdit');
+      if(!formEdit) return;
+      formEdit.addEventListener('submit', e=>{
+        e.preventDefault();
+        const id = document.getElementById('e_index')?.value;
+        const idx = invoices.findIndex(x=>x.id===id); if(idx===-1) return;
+        invoices[idx].fecha  = document.getElementById('e_fecha')?.value || invoices[idx].fecha;
+        invoices[idx].numero = document.getElementById('e_numero')?.value?.trim() || invoices[idx].numero;
+        invoices[idx].monto  = parseFloat(document.getElementById('e_monto')?.value) || invoices[idx].monto;
+        saveAll(); renderFacturas(); updateDashboard();
+        const modalEl = document.getElementById('editModal');
+        if(modalEl){ const inst = bootstrap.Modal.getInstance(modalEl); if(inst) inst.hide(); }
+      });
+    })();
+  
+    // ----------------------
+    // BACKUP / RESET
+    // ----------------------
+    document.getElementById('btnBackup')?.addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify({invoices,clients,products},null,2)],{type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='erp_backup.json';
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+  
+    document.getElementById('btnReset')?.addEventListener('click', ()=>{
+      if(!confirm('Borrar todos los datos locales? Esta acción NO se puede deshacer.')) return;
+      invoices=[]; clients=[]; products=[];
+      saveAll(); renderAll(); updateDashboard();
+    });
+  
+    // ----------------------
+    // IMPORTAR DESDE EXCEL
+    // ----------------------
+    const importExcelFacturas = document.getElementById('importExcelFacturas');
+    if(importExcelFacturas){
+      importExcelFacturas.addEventListener('change', e=>{
+        const file = e.target.files[0]; if(!file) return;
+        if(typeof XLSX==='undefined'){ alert('Falta cargar SheetJS (XLSX).'); this.value=''; return; }
+        const reader = new FileReader();
+        reader.onload = function(ev){
+          const data = new Uint8Array(ev.target.result);
+          const workbook = XLSX.read(data,{type:'array'});
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet,{header:1});
+          rows.slice(1).forEach(row=>{
+            let [fecha, numero, docType, clienteNombre, tipo, monto] = row;
+            if(!fecha||!numero||!docType||!clienteNombre||!tipo||!monto) return;
+            const fechaStr = (typeof fecha==='string')?fecha:XLSX.SSF.format("yyyy-mm-dd",fecha);
+            let cliente = clients.find(c=>c.nombre.trim().toLowerCase()===String(clienteNombre).trim().toLowerCase());
+            if(!cliente){ cliente={id:crypto.randomUUID(),nombre:String(clienteNombre).trim(),doc:''}; clients.push(cliente);}
+            invoices.push({
+              id: crypto.randomUUID(),
+              fecha: fechaStr,
+              numero: String(numero),
+              docType: String(docType),
+              clienteId: cliente.id,
+              clienteNombre: cliente.nombre,
+              tipo: String(tipo),
+              monto: parseFloat(monto)||0
+            });
+          });
+          saveAll(); renderClientes(); renderFacturas(); updateDashboard();
+          alert('Facturas importadas correctamente.'); importExcelFacturas.value='';
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    }
+  
+    // ----------------------
+    // DASHBOARD / CHARTS
+    // ----------------------
+    const getYearMonths = ()=>['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const getLast12MonthsLabels = ()=>{
+      const res=[]; const now=new Date();
+      for(let i=11;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i,1); res.push(d.toLocaleString('es-AR',{month:'short', year:'numeric'})); }
+      return res;
+    };
+  
+    const initCharts = ()=>{
+      const barCanvas=document.getElementById('chartBar');
+      const donutCanvas=document.getElementById('chartDonut');
+      const lineCanvas=document.getElementById('chartLine');
+      if(typeof Chart==='undefined' || !barCanvas || !donutCanvas || !lineCanvas) return updateDashboard();
+      const months=getLast12MonthsLabels(), emptyData=new Array(months.length).fill(0);
+  
+      const ctxBar = barCanvas.getContext('2d');
+      const gradientVentas = ctxBar.createLinearGradient(0,0,0,200); gradientVentas.addColorStop(0,'rgba(13,110,253,0.9)'); gradientVentas.addColorStop(1,'rgba(58,160,255,0.4)');
+      const gradientCompras = ctxBar.createLinearGradient(0,0,0,200); gradientCompras.addColorStop(0,'rgba(220,53,69,0.9)'); gradientCompras.addColorStop(1,'rgba(255,107,107,0.4)');
+      chartBar = new Chart(ctxBar,{type:'bar',data:{labels:months,datasets:[{label:'Ventas',data:emptyData,backgroundColor:gradientVentas,borderColor:'rgba(13,110,253,1)',borderWidth:1},{label:'Compras',data:emptyData,backgroundColor:gradientCompras,borderColor:'rgba(220,53,69,1)',borderWidth:1}]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
+  
+      const ctxDonut = donutCanvas.getContext('2d');
+      chartDonut = new Chart(ctxDonut,{type:'doughnut',data:{labels:['Factura A','Factura B','Factura C','Nota Crédito','Nota Débito'],datasets:[{data:[0,0,0,0,0],backgroundColor:['#3aa0ff','#6f42c1','#fd7e14','#198754','#dc3545']}]} ,options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+  
+      const ctxLine = lineCanvas.getContext('2d');
+      chartLine = new Chart(ctxLine,{type:'line',data:{labels:getYearMonths(),datasets:[{label:'Ventas',data:new Array(12).fill(0),borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.08)',tension:0.3,fill:true},{label:'Compras',data:new Array(12).fill(0),borderColor:'#dc3545',backgroundColor:'rgba(220,53,69,0.06)',tension:0.3,fill:true}]} ,options:{responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true}}}});
+      updateDashboard();
+    };
+  
+    const updateDashboard = ()=>{
+      const ventas   = invoices.filter(i=>i.tipo==='Venta').reduce((s,a)=>s+(+a.monto||0),0);
+      const compras  = invoices.filter(i=>i.tipo==='Compra').reduce((s,a)=>s+(+a.monto||0),0);
+      const elTotalV = document.getElementById('totalVentas'); if(elTotalV) elTotalV.textContent=`$${ventas.toFixed(2)}`;
+      const elTotalC = document.getElementById('totalCompras'); if(elTotalC) elTotalC.textContent=`$${compras.toFixed(2)}`;
+      const elRes    = document.getElementById('resultado'); if(elRes) elRes.textContent=`$${(ventas-compras).toFixed(2)}`;
+      const elDocs   = document.getElementById('totalDocs'); if(elDocs) elDocs.textContent=invoices.length;
+  
+      // Bar chart
+      if(chartBar){
+        const months = getLast12MonthsLabels();
+        const ventasBy=new Array(months.length).fill(0), comprasBy=new Array(months.length).fill(0);
+        const now=new Date();
+        invoices.forEach(inv=>{
+          if(!inv.fecha) return;
+          const invDate=new Date(inv.fecha);
+          const diffMonths=(now.getFullYear()-invDate.getFullYear())*12 + (now.getMonth()-invDate.getMonth());
+          if(diffMonths>=0 && diffMonths<months.length){
+            const idx = months.length-1-diffMonths;
+            if(inv.tipo==='Venta') ventasBy[idx]+= (+inv.monto||0); else comprasBy[idx]+= (+inv.monto||0);
+          }
+        });
+        chartBar.data.datasets[0].data=ventasBy;
+        chartBar.data.datasets[1].data=comprasBy;
+        try{chartBar.update();}catch(_){}
+      }
+  
+      // Donut chart
+      if(chartDonut){
+        const types=['Factura A','Factura B','Factura C','Nota Crédito','Nota Débito'];
+        const counts = types.map(t=>invoices.filter(i=>i.docType===t).length);
+        chartDonut.data.datasets[0].data=counts;
+        try{chartDonut.update();}catch(_){}
+      }
+  
+      // Line chart
+      if(chartLine){
+        const ventasYear=new Array(12).fill(0), comprasYear=new Array(12).fill(0);
+        const year=new Date().getFullYear();
+        invoices.forEach(inv=>{
+          if(!inv.fecha) return;
+          const d=new Date(inv.fecha);
+          if(d.getFullYear()!==year) return;
+          const m=d.getMonth();
+          if(inv.tipo==='Venta') ventasYear[m]+= (+inv.monto||0); else comprasYear[m]+= (+inv.monto||0);
+        });
+        chartLine.data.datasets[0].data=ventasYear;
+        chartLine.data.datasets[1].data=comprasYear;
+        try{chartLine.update();}catch(_){}
+      }
+    };
+  
+    // ----------------------
+    // RENDER GENERAL
+    // ----------------------
+    const renderAll = ()=>{
+      renderClientes();
+      renderProductsTable();
+      renderFacturas();
+      updateDashboard();
+    };
+  
+    // ----------------------
+    // EVENTOS DE NAVEGACIÓN
+    // ----------------------
+    navButtons.forEach(btn=>{
+      btn.addEventListener('click', ()=>{ if(btn.dataset.section) switchSection(btn.dataset.section); });
+    });
+  
+    // ----------------------
+    // INICIALIZAR
+    // ----------------------
+    renderNav(); renderAll(); initCharts();
+    if(document.getElementById('dashboard')) switchSection('dashboard');
+  
+  });
+  </script>
+  
+
+</body>
+</html>
+
