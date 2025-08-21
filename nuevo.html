@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ERP Local</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+  .sidebar { background: #f8f9fa; height: 100vh; }
+  .stat-card { padding:1rem; border-radius:0.5rem; background:#e9ecef; margin-bottom:1rem; }
+</style>
+</head>
+<body>
+<div class="d-flex">
+  <!-- SIDEBAR -->
+  <aside class="sidebar p-3 col-12 col-md-3 col-lg-2">
+    <h5 class="mb-3">ERP Local</h5>
+    <div class="list-group">
+      <button class="list-group-item list-group-item-action nav-link active" data-section="dashboard">Dashboard</button>
+      <button class="list-group-item list-group-item-action nav-link" data-section="facturas">Facturas</button>
+      <button class="list-group-item list-group-item-action nav-link" data-section="clientes">Clientes</button>
+      <button class="list-group-item list-group-item-action nav-link" data-section="productos">Productos</button>
+      <button class="list-group-item list-group-item-action nav-link" data-section="reportes">Reportes</button>
+      <button class="list-group-item list-group-item-action nav-link" data-section="exportar">Exportar</button>
+    </div>
+    <hr>
+    <div class="small-muted">Estado local: <strong id="statusLocal">OK</strong></div>
+    <div class="mt-3 small-muted">Guardar automático en <code>localStorage</code></div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="p-4 flex-grow-1">
+    <!-- HEADER -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 id="sectionTitle">Dashboard</h3>
+      <div>
+        <button class="btn btn-outline-secondary me-2" id="btnBackup">Respaldar (.json)</button>
+        <button class="btn btn-outline-danger" id="btnReset">Borrar datos</button>
+      </div>
+    </div>
+
+    <!-- SECTIONS -->
+    <section id="dashboard" class="section">
+      <div class="row g-3 mb-3">
+        <div class="col-md-3">
+          <div class="stat-card stat-ventas">
+            <div class="small-muted">Total Ventas</div>
+            <h4 id="totalVentas">$0.00</h4>
+            <div class="small-muted">Último mes: <span id="lastMonthVentas">$0.00</span></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card stat-compras">
+            <div class="small-muted">Total Compras</div>
+            <h4 id="totalCompras">$0.00</h4>
+            <div class="small-muted">Último mes: <span id="lastMonthCompras">$0.00</span></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card stat-neto">
+            <div class="small-muted">Resultado Neto</div>
+            <h4 id="resultado">$0.00</h4>
+            <div class="small-muted">Ventas - Compras</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="stat-card stat-docs">
+            <div class="small-muted">Documentos</div>
+            <h4 id="totalDocs">0</h4>
+            <div class="small-muted">Tipos: A/B/C, NC, ND</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 ">
+        <div class="col-lg-8 col-md-12">
+          <div class="card chart-card card-compact p-3">
+            <h6>Ventas vs Compras (Mensual)</h6>
+            <canvas id="chartBar" width="400" height="186"></canvas>
+          </div>
+        </div>
+        <div class="col-lg-4 col-md-12">
+          <div class="card chart-card card-compact p-3">
+            <h6>Tipos de Documentos</h6>
+            <canvas id="chartDonut"></canvas>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="card chart-card card-compact p-3">
+            <h6>Evolución Anual (Línea de Tiempo)</h6>
+            <canvas id="chartLine" height="130"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="facturas" class="section d-none mb-3 mt-5">
+      <div class="card p-3">
+        <h6>Cargar Factura Manualmente</h6>
+        <form id="formFactura" class="row g-2 align-items-end">
+          <div class="col-md-2">
+            <label class="form-label">Fecha</label>
+            <input type="date" id="f_fecha" class="form-control" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Nº</label>
+            <input type="text" id="f_numero" class="form-control" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Documento</label>
+            <select id="f_docType" class="form-select">
+              <option value="Factura A">Factura A</option>
+              <option value="Factura B">Factura B</option>
+              <option value="Factura C">Factura C</option>
+              <option value="Nota Crédito">Nota Crédito</option>
+              <option value="Nota Débito">Nota Débito</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Cliente</label>
+            <select id="f_cliente" class="form-select"></select>
+          </div>
+          <div class="col-md-1">
+            <label class="form-label">Tipo</label>
+            <select id="f_tipo" class="form-select">
+              <option value="Venta">Venta</option>
+              <option value="Compra">Compra</option>
+            </select>
+          </div>
+          <div class="col-md-1">
+            <label class="form-label">Monto</label>
+            <input type="number" step="0.01" id="f_monto" class="form-control" required>
+          </div>
+          <div class="col-md-1 d-grid">
+            <button class="btn btn-primary" type="submit">Agregar</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Importar Excel -->
+      <div class="card p-3 mb-3 mt-3">
+        <label class="form-label">Importar Facturas desde Excel</label>
+        <input type="file" id="importExcelFacturas" class="form-control" accept=".xlsx,.xls">
+      </div>
+
+      <!-- Tabla de facturas -->
+      <div class="card p-3 mb-3">
+        <div class="d-flex justify-content-between mb-2">
+          <div>
+            <input type="text" id="buscarFact" class="form-control" placeholder="Buscar por número, cliente...">
+          </div>
+          <div class="d-flex gap-2">
+            <select id="filterTipo" class="form-select">
+              <option value="">Todos</option>
+              <option value="Venta">Ventas</option>
+              <option value="Compra">Compras</option>
+            </select>
+            <button class="btn btn-outline-secondary" id="btnExportFact">Exportar Excel</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr><th>Fecha</th><th>Nº</th><th>Documento</th><th>Cliente</th><th>Tipo</th><th>Monto</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="tblFacturas"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Clientes, Productos, Reportes y Exportar -->
+    <!-- ... igual que tu código original ... -->
+  </main>
+</div>
+
+<!-- MODAL EDITAR FACTURA (Solo 1) -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content p-3">
+      <h5>Editar Factura</h5>
+      <form id="formEditFactura">
+        <input type="hidden" id="edit_id">
+        <div class="mb-2">
+          <label>Fecha</label>
+          <input type="date" id="edit_fecha" class="form-control" required>
+        </div>
+        <div class="mb-2">
+          <label>Número</label>
+          <input type="text" id="edit_numero" class="form-control" required>
+        </div>
+        <div class="mb-2">
+          <label>Documento</label>
+          <select id="edit_docType" class="form-select">
+            <option value="Factura A">Factura A</option>
+            <option value="Factura B">Factura B</option>
+            <option value="Factura C">Factura C</option>
+            <option value="Nota Crédito">Nota Crédito</option>
+            <option value="Nota Débito">Nota Débito</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label>Cliente</label>
+          <select id="edit_cliente" class="form-select"></select>
+        </div>
+        <div class="mb-2">
+          <label>Tipo</label>
+          <select id="edit_tipo" class="form-select">
+            <option value="Venta">Venta</option>
+            <option value="Compra">Compra</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label>Monto</label>
+          <input type="number" step="0.01" id="edit_monto" class="form-control" required>
+        </div>
+        <div class="text-end">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ----------------------
+// DATOS INICIALES
+// ----------------------
+let clients = JSON.parse(localStorage.getItem('clients') || '[]');
+let invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+let products = JSON.parse(localStorage.getItem('products') || '[]');
+
+let rChartInstance = null; // gráfico barras
+let donutChartInstance = null;
+let lineChartInstance = null;
+
+// ----------------------
+// FUNCIONES RENDER
+// ----------------------
+function renderClientes() {
+  const sel = document.getElementById('f_cliente');
+  const editSel = document.getElementById('edit_cliente');
+  sel.innerHTML = '';
+  editSel.innerHTML = '';
+  clients.forEach(c=>{
+    const option = document.createElement('option');
+    option.value = c.id;
+    option.textContent = c.nombre;
+    sel.appendChild(option);
+    const option2 = option.cloneNode(true);
+    editSel.appendChild(option2);
+  });
+}
+
+function renderFacturas() {
+  const tbody = document.getElementById('tblFacturas');
+  tbody.innerHTML = '';
+  const buscar = document.getElementById('buscarFact').value.toLowerCase();
+  const filterTipo = document.getElementById('filterTipo').value;
+
+  invoices.forEach(f=>{
+    const cliente = clients.find(c=>c.id===f.clienteId);
+    if(cliente && 
+       (f.numero.toLowerCase().includes(buscar) ||
+        cliente.nombre.toLowerCase().includes(buscar)) &&
+       (!filterTipo || f.tipo===filterTipo)
+      ) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${f.fecha}</td>
+        <td>${f.numero}</td>
+        <td>${f.docType}</td>
+        <td>${cliente.nombre}</td>
+        <td>${f.tipo}</td>
+        <td>${f.monto.toFixed(2)}</td>
+        <td>
+          <button class="btn btn-sm btn-primary btn-edit" data-id="${f.id}">Editar</button>
+          <button class="btn btn-sm btn-danger btn-delete" data-id="${f.id}">Eliminar</button>
+        </td>`;
+      tbody.appendChild(tr);
+    }
+  });
+
+  // botones editar/eliminar
+  document.querySelectorAll('.btn-delete').forEach(b=>{
+    b.onclick = ()=>{ deleteFactura(b.dataset.id); };
+  });
+  document.querySelectorAll('.btn-edit').forEach(b=>{
+    b.onclick = ()=>{ abrirEditModal(b.dataset.id); };
+  });
+}
+
+// ----------------------
+// CRUD FACTURAS
+// ----------------------
+document.getElementById('formFactura').onsubmit = e=>{
+  e.preventDefault();
+  const fecha = document.getElementById('f_fecha').value;
+  const numero = document.getElementById('f_numero').value;
+  const docType = document.getElementById('f_docType').value;
+  const clienteId = document.getElementById('f_cliente').value;
+  const tipo = document.getElementById('f_tipo').value;
+  const monto = parseFloat(document.getElementById('f_monto').value);
+
+  invoices.push({id:Date.now().toString(),fecha,numero,docType,clienteId,tipo,monto});
+  localStorage.setItem('invoices', JSON.stringify(invoices));
+  renderFacturas();
+  e.target.reset();
+};
+
+function deleteFactura(id){
+  if(confirm('Eliminar factura?')){
+    invoices = invoices.filter(f=>f.id!==id);
+    localStorage.setItem('invoices', JSON.stringify(invoices));
+    renderFacturas();
+  }
+}
+
+function abrirEditModal(id){
+  const f = invoices.find(inv=>inv.id===id);
+  if(!f) return;
+  document.getElementById('edit_id').value = f.id;
+  document.getElementById('edit_fecha').value = f.fecha;
+  document.getElementById('edit_numero').value = f.numero;
+  document.getElementById('edit_docType').value = f.docType;
+  document.getElementById('edit_cliente').value = f.clienteId;
+  document.getElementById('edit_tipo').value = f.tipo;
+  document.getElementById('edit_monto').value = f.monto;
+  const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+  editModal.show();
+}
+
+document.getElementById('formEditFactura').onsubmit = e=>{
+  e.preventDefault();
+  const id = document.getElementById('edit_id').value;
+  const f = invoices.find(inv=>inv.id===id);
+  if(f){
+    f.fecha = document.getElementById('edit_fecha').value;
+    f.numero = document.getElementById('edit_numero').value;
+    f.docType = document.getElementById('edit_docType').value;
+    f.clienteId = document.getElementById('edit_cliente').value;
+    f.tipo = document.getElementById('edit_tipo').value;
+    f.monto = parseFloat(document.getElementById('edit_monto').value);
+    localStorage.setItem('invoices', JSON.stringify(invoices));
+    renderFacturas();
+    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+  }
+};
+
+// ----------------------
+// EVENTOS BUSCAR / FILTRAR
+// ----------------------
+document.getElementById('buscarFact').addEventListener('input', renderFacturas);
+document.getElementById('filterTipo').addEventListener('change', renderFacturas);
+
+// ----------------------
+// INICIALIZACIÓN
+// ----------------------
+renderClientes();
+renderFacturas();
+</script>
+</body>
+</html>
+

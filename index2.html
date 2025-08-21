@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ERP Local - Mini Sistema Profesional</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/shim.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --accent:#0d6efd;
+      --muted:#f6f8fb;
+      --card:#ffffff;
+      --green:#28a745;
+      --red:#dc3545;
+      --violet:#6f42c1;
+      --orange:#fd7e14;
+    }
+    
+    body{
+      background:linear-gradient(180deg,#f8fbff 0%,var(--muted) 100%);
+      font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+    
+    /* SIDEBAR */
+    .sidebar{
+      min-height:100vh;
+      background:var(--card);
+      border-right:1px solid #070707;
+      transition: all 0.3s ease;
+    }
+    
+    .sidebar:hover{
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+    }
+    
+    /* NAV LINK ACTIVE */
+    .nav-link.active{
+      background:linear-gradient(90deg, rgba(13,110,253,0.08), transparent);
+      border-left:4px solid var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .nav-link:hover{
+      background:linear-gradient(90deg, rgba(13,110,253,0.15), transparent);
+      transform: translateX(3px);
+    }
+    
+    /* CARDS */
+    .card-compact{
+      box-shadow:0 10px 30px rgba(12, 13, 14, 0.245);
+      border-radius:12px;
+      transition: all 0.3s ease;
+    }
+    
+    .card-compact:hover{
+      transform: translateY(-5px);
+      box-shadow:0 15px 35px rgba(12, 13, 14, 0.35);
+    }
+    
+    /* STAT CARDS */
+    .stat-card{
+      border-radius:12px;
+      padding:18px;
+      color:#fff;
+      transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover{
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    }
+    
+    .stat-ventas{background:linear-gradient(90deg,var(--accent),#3aa0ff);}
+    .stat-compras{background:linear-gradient(90deg,var(--red),#ff6b6b);}
+    .stat-neto{background:linear-gradient(90deg,var(--green),#66d06b);}
+    .stat-docs{background:linear-gradient(90deg,var(--violet),#9f7fff);}
+    
+    /* TABLAS */
+    table td, table th{
+      vertical-align:middle;
+      transition: all 0.2s ease;
+    }
+    
+    table tr:hover{
+      background-color: rgba(0,0,0,0.03);
+    }
+    
+    /* CHART CARD */
+    .chart-card{
+      padding:16px;
+      border-radius:12px;
+      box-shadow:0 8px 25px rgba(0,0,0,0.08);
+      transition: all 0.3s ease;
+    }
+    
+    .chart-card:hover{
+      transform: translateY(-4px);
+      box-shadow:0 12px 35px rgba(0,0,0,0.12);
+    }
+    
+    /* TEXTOS PEQUEÑOS */
+    .small-muted{
+      font-size:.90rem;
+      font-weight: 700;
+      color: #212529;
+    }
+    
+    /* RESPONSIVE */
+    @media (max-width:768px){
+      .sidebar{
+        display:none;
+      }
+    }
+    /* Títulos */
+   h3,h5,h6 { font-weight: 600; color: #212529; }
+   
+/* Alineación de botones de acciones a la derecha */
+.table td:last-child,
+.table th:last-child {
+  text-align: right;
+}
+th.acc {
+  text-align: center;      /* centra horizontalmente */
+  vertical-align: middle;  /* centra verticalmente */
+}
+
+/* Estilo de botones dentro de la tabla */
+.table .btn {
+  margin-left: 5px; /* separa los botones entre sí */
+  transition: all 0.2s ease;
+}
+
+.table .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+  </style>
+    
+</head>
+<body>
+
+  <div class="d-flex">
+    <!-- SIDEBAR -->
+    <aside class="sidebar p-3 col-12 col-md-3 col-lg-2">
+      <h5 class="mb-3">ERP Local</h5>
+      <div class="list-group">
+        <button class="list-group-item list-group-item-action nav-link active" data-section="dashboard">Dashboard</button>
+        <button class="list-group-item list-group-item-action nav-link" data-section="facturas">Facturas</button>
+        <button class="list-group-item list-group-item-action nav-link" data-section="clientes">Clientes</button>
+        <button class="list-group-item list-group-item-action nav-link" data-section="productos">Productos</button>
+        <button class="list-group-item list-group-item-action nav-link" data-section="reportes">Reportes</button>
+        <button class="list-group-item list-group-item-action nav-link" data-section="exportar">Exportar</button>
+      </div>
+      <hr>
+      <div class="small-muted">Estado local: <strong id="statusLocal">OK</strong></div>
+      <div class="mt-3 small-muted">Guardar automático en <code>localStorage</code></div>
+    </aside>
+  
+    <!-- MAIN -->
+    <main class="p-4 flex-grow-1">
+      <!-- HEADER -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 id="sectionTitle">Dashboard</h3>
+        <div>
+          <button class="btn btn-outline-secondary me-2" id="btnBackup">Respaldar (.json)</button>
+          <button class="btn btn-outline-danger" id="btnReset">Borrar datos</button>
+        </div>
+      </div>
+  
+      <!-- SECTIONS -->
+      <section id="dashboard" class="section">
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <div class="stat-card stat-ventas">
+              <div class="small-muted">Total Ventas</div>
+              <h4 id="totalVentas">$0.00</h4>
+              <div class="small-muted">Último mes: <span id="lastMonthVentas">$0.00</span></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card stat-compras">
+              <div class="small-muted">Total Compras</div>
+              <h4 id="totalCompras">$0.00</h4>
+              <div class="small-muted">Último mes: <span id="lastMonthCompras">$0.00</span></div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card stat-neto">
+              <div class="small-muted">Resultado Neto</div>
+              <h4 id="resultado">$0.00</h4>
+              <div class="small-muted">Ventas - Compras</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="stat-card stat-docs">
+              <div class="small-muted">Documentos</div>
+              <h4 id="totalDocs">0</h4>
+              <div class="small-muted">Tipos: A/B/C, NC, ND</div>
+            </div>
+          </div>
+        </div>
+  
+        <div class="row g-3">
+          <div class="col-lg-8 col-md-12">
+            <div class="card chart-card card-compact p-3">
+              <h6>Ventas vs Compras (Mensual)</h6>
+              <canvas id="chartBar" width="400" height="186"></canvas>
+            </div>
+          </div>
+  
+          <div class="col-lg-4 col-md-12">
+            <div class="card chart-card card-compact p-3">
+              <h6>Tipos de Documentos</h6>
+              <canvas id="chartDonut"></canvas>
+            </div>
+          </div>
+  
+          <div class="col-12">
+            <div class="card chart-card card-compact p-3">
+              <h6>Evolución Anual (Línea de Tiempo)</h6>
+              <canvas id="chartLine" height="130"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+  
+      <section id="facturas" class="section d-none">
+        <div class="card p-3 mb-3">
+          <h6>Cargar Factura Manualmente</h6>
+          <form id="formFactura" class="row g-2 align-items-end">
+            <div class="col-md-2">
+              <label class="form-label">Fecha</label>
+              <input type="date" id="f_fecha" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Nº</label>
+              <input type="text" id="f_numero" class="form-control" required>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Documento</label>
+              <select id="f_docType" class="form-select">
+                <option value="Factura A">Factura A</option>
+                <option value="Factura B">Factura B</option>
+                <option value="Factura C">Factura C</option>
+                <option value="Nota Crédito">Nota Crédito</option>
+                <option value="Nota Débito">Nota Débito</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Cliente</label>
+              <select id="f_cliente" class="form-select"></select>
+            </div>
+            <div class="col-md-1">
+              <label class="form-label">Tipo</label>
+              <select id="f_tipo" class="form-select">
+                <option value="Venta">Venta</option>
+                <option value="Compra">Compra</option>
+              </select>
+            </div>
+            <div class="col-md-1">
+              <label class="form-label">Monto</label>
+              <input type="number" step="0.01" id="f_monto" class="form-control" required>
+            </div>
+            <div class="col-md-1 d-grid">
+              <button class="btn btn-primary" type="submit">Agregar</button>
+            </div>
+          </form>
+        </div>
+  
+        <!-- Importar Excel -->
+        <div class="card p-3 mb-3">
+          <label class="form-label">Importar Facturas desde Excel</label>
+          <input type="file" id="importExcelFacturas" class="form-control" accept=".xlsx,.xls">
+        </div>
+  
+        <!-- Tabla de facturas -->
+        <div class="card p-3 mb-3">
+          <div class="d-flex justify-content-between mb-2 gap-2 flex-wrap">
+            <div class="flex-grow-1">
+              <input type="text" id="buscarFact" class="form-control h-100" placeholder="Buscar por número, cliente, tipo de documento...">
+            </div>
+            <div class="d-flex gap-2 align-items-stretch">
+              <select id="filterTipo" class="form-select h-100">
+                <option value="">Todos</option>
+                <option value="Venta">Ventas</option>
+                <option value="Compra">Compras</option>
+              </select>
+              <button class="btn btn-success h-100" id="btnExportFact">Exportar Excel</button>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Fecha</th>
+                  <th>Nº</th>
+                  <th>Documento</th>
+                  <th>Cliente</th>
+                  <th>Tipo</th>
+                  <th>Monto</th>
+                  <th class="acc">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tblFacturas"></tbody>
+            </table>
+          </div>
+        </div>
+        
+      </section>
+  
+      <section id="clientes" class="section d-none">
+        <div class="card p-3 mb-3">
+          <form id="formCliente" class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Nombre/Razón social</label>
+              <input type="text" id="c_nombre" class="form-control" required placeholder="NL Sistemas">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Cuit/ Cuil/ Dni</label>
+              <input type="text" id="c_doc" class="form-control" placeholder="27-34776293-3">
+            </div>
+            <div class="col-md-3 d-grid">
+              <button class="btn btn-primary mt-4" type="submit">Agregar Cliente</button>
+            </div>
+          </form>
+        </div>
+        <div class="card p-3">
+          <div class="table-responsive">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Nombre</th><th>Doc</th><th>Acciones</th></tr></thead>
+              <tbody id="tblClientes"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+  
+      <section id="productos" class="section d-none">
+        <div class="card p-3 mb-3">
+          <form id="formProducto" class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Producto / Servicio</label>
+              <input type="text" id="p_nombre" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Precio</label>
+              <input type="number" step="0.01" id="p_precio" class="form-control" required>
+            </div>
+            <div class="col-md-3 d-grid">
+              <button class="btn btn-primary mt-4" type="submit">Agregar Producto</button>
+            </div>
+          </form>
+        </div>
+        <div class="card p-3">
+          <div class="table-responsive">
+            <table class="table table-striped mb-0">
+              <thead><tr><th>Nombre</th><th>Precio</th><th>Acciones</th></tr></thead>
+              <tbody id="tblProductos"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+  
+      <section id="reportes" class="section d-none">
+        <div class="card p-3">
+          <h6>Reportes</h6>
+          <div class="row mt-2">
+            <div class="col-md-3">
+              <label class="form-label">Desde</label>
+              <input type="date" id="r_desde" class="form-control">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Hasta</label>
+              <input type="date" id="r_hasta" class="form-control">
+            </div>
+            <div class="col-md-3 d-grid">
+              <button class="btn btn-primary mt-4" id="btnGenerarReporte">Generar</button>
+            </div>
+          </div>
+          <hr>
+          <div id="reporteCont"></div>
+        </div>
+      </section>
+  
+      <section id="exportar" class="section d-none">
+        <div class="card p-3">
+          <h6>Exportar todo</h6>
+          <p class="small-muted">Descarga un respaldo completo en .xlsx o .json para migrar a otro sistema.</p>
+          <div class="d-flex gap-2">
+            <button class="btn btn-success" id="btnExportAllXLSX">Exportar .xlsx</button>
+            <button class="btn btn-secondary" id="btnExportAllJSON">Exportar .json</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  
+  <!-- EDIT MODAL (único, no duplicado) -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Editar Factura</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <form id="formEdit">
+            <input type="hidden" id="e_index">
+            <div class="mb-2"><label class="form-label">Fecha</label><input type="date" id="e_fecha" class="form-control"></div>
+            <div class="mb-2"><label class="form-label">Nº</label><input type="text" id="e_numero" class="form-control"></div>
+            <div class="mb-2"><label class="form-label">Monto</label><input type="number" step="0.01" id="e_monto" class="form-control"></div>
+            <div class="d-grid"><button class="btn btn-primary">Guardar</button></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // ----------------------
+  // ESTRUCTURA DE DATOS
+  // ----------------------
+  const LS_KEYS = { INVOICES: 'erp_invoices_v2', CLIENTS: 'erp_clients_v2', PRODUCTS: 'erp_products_v2' };
+  let invoices = JSON.parse(localStorage.getItem(LS_KEYS.INVOICES)) || [];
+  let clients = JSON.parse(localStorage.getItem(LS_KEYS.CLIENTS)) || [];
+  let products = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCTS)) || [];
+  
+  // UUID seguro (fallback)
+  const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  
+  // UI refs
+  const sections = document.querySelectorAll('.section');
+  const navButtons = document.querySelectorAll('.nav-link');
+  const sectionTitle = document.getElementById('sectionTitle');
+  
+  // ----------------------
+  // GRÁFICOS (declarados temprano)
+  // ----------------------
+  let chartBar = null;
+  let chartDonut = null;
+  let chartLine = null;
+  let rChartInstance = null; // <- para reportes
+  
+  // ----------------------
+  // Inicializar
+  // ----------------------
+  renderNav();
+  renderClientsSelect();
+  initCharts();
+  renderAll();
+  renderFacturas();
+  switchSection('dashboard'); // mostrar solo Dashboard al inicio
+  
+  // ----------------------
+  // NAVEGACION
+  // ----------------------
+  navButtons.forEach(btn => btn.addEventListener('click', ()=>{ switchSection(btn.dataset.section); }));
+  function switchSection(name){
+    sections.forEach(s=> s.classList.add('d-none'));
+    const el = document.getElementById(name);
+    if(el) el.classList.remove('d-none');
+    sectionTitle.textContent = name.charAt(0).toUpperCase()+name.slice(1);
+    navButtons.forEach(n=> n.classList.remove('active'));
+    const nav = document.querySelector(`[data-section="${name}"]`);
+    if(nav) nav.classList.add('active');
+    if(name==='dashboard') updateDashboard();
+  }
+  
+  // ----------------------
+  // GUARDAR / CARGAR
+  // ----------------------
+  function saveAll(){
+    localStorage.setItem(LS_KEYS.INVOICES, JSON.stringify(invoices));
+    localStorage.setItem(LS_KEYS.CLIENTS, JSON.stringify(clients));
+    localStorage.setItem(LS_KEYS.PRODUCTS, JSON.stringify(products));
+  }
+  
+  // respaldo .json
+  const btnBackup = document.getElementById('btnBackup');
+  if(btnBackup) btnBackup.addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify({invoices,clients,products}, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = 'erp_backup.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  });
+  
+  // reset
+  const btnReset = document.getElementById('btnReset');
+  if(btnReset) btnReset.addEventListener('click', ()=>{
+    if(!confirm('Borrar todos los datos locales? Esta acción NO se puede deshacer.')) return;
+    invoices = []; clients = []; products = []; saveAll(); renderAll(); updateDashboard();
+  });
+  
+  // ----------------------
+  // CLIENTES
+  // ----------------------
+  const formCliente = document.getElementById('formCliente');
+  if(formCliente) formCliente.addEventListener('submit', e=>{
+    e.preventDefault();
+    const nombre = document.getElementById('c_nombre').value.trim();
+    const doc = document.getElementById('c_doc').value.trim();
+    if(!nombre){ alert('El nombre es obligatorio'); return; }
+    clients.push({id: uid(), nombre, doc});
+    saveAll(); renderClientsTable(); renderClientsSelect(); formCliente.reset();
+  });
+  
+  function renderClientsTable(){
+    const tbody = document.getElementById('tblClientes'); if(!tbody) return;
+    tbody.innerHTML='';
+    clients.forEach((c, i)=>{
+      tbody.innerHTML += `<tr>
+        <td>${c.nombre}</td><td>${c.doc||''}</td>
+        <td><button class='btn btn-sm btn-danger' onclick='deleteClient(${i})'>Eliminar</button></td>
+      </tr>`;
+    });
+  }
+  
+  function deleteClient(i){
+    const removed = clients.splice(i,1)[0];
+    // opcional: desvincular facturas del cliente eliminado manteniendo el nombre histórico
+    invoices = invoices.map(inv => inv.clienteId===removed?.id ? {...inv, clienteId:null} : inv);
+    saveAll(); renderClientsSelect(); renderClientsTable(); renderFacturas(); updateDashboard();
+  }
+  
+  function renderClientsSelect(){
+    const sel = document.getElementById('f_cliente'); if(!sel) return;
+    sel.innerHTML = clients.map(c=> `<option value="${c.id}">${c.nombre}</option>`).join('');
+    if(!sel.innerHTML) sel.innerHTML = '<option value="">-- Sin clientes --</option>';
+    renderClientsTable();
+  }
+  
+  // ----------------------
+  // PRODUCTOS
+  // ----------------------
+  const formProducto = document.getElementById('formProducto');
+  if(formProducto) formProducto.addEventListener('submit', e=>{
+    e.preventDefault();
+    const nombre = document.getElementById('p_nombre').value.trim();
+    const precio = parseFloat(document.getElementById('p_precio').value) || 0;
+    if(!nombre){ alert('El nombre del producto es obligatorio'); return; }
+    products.push({id: uid(), nombre, precio}); saveAll(); renderProductsTable(); formProducto.reset();
+  });
+  
+  function renderProductsTable(){
+    const tbody = document.getElementById('tblProductos'); if(!tbody) return;
+    tbody.innerHTML='';
+    products.forEach((p,i)=> tbody.innerHTML += `<tr>
+      <td>${p.nombre}</td><td>$${(+p.precio||0).toFixed(2)}</td>
+      <td><button class='btn btn-sm btn-danger' onclick='deleteProduct(${i})'>Eliminar</button></td>
+    </tr>`);
+  }
+  
+  function deleteProduct(i){ products.splice(i,1); saveAll(); renderProductsTable(); }
+  
+  // ----------------------
+  // REPORTES
+  // ----------------------
+  const btnGenerarReporte = document.getElementById('btnGenerarReporte');
+  if(btnGenerarReporte) btnGenerarReporte.addEventListener('click', ()=>{
+    const desde = document.getElementById('r_desde').value;
+    const hasta = document.getElementById('r_hasta').value;
+    const cont = document.getElementById('reporteCont'); if(!cont) return;
+    cont.innerHTML='';
+    const filtered = invoices.filter(inv=>{
+      if(desde && new Date(inv.fecha) < new Date(desde)) return false;
+      if(hasta && new Date(inv.fecha) > new Date(hasta)) return false;
+      return true;
+    });
+    const totalV = filtered.filter(i=> i.tipo==='Venta').reduce((s,a)=>s+(+a.monto||0),0);
+    const totalC = filtered.filter(i=> i.tipo==='Compra').reduce((s,a)=>s+(+a.monto||0),0);
+    cont.innerHTML = `
+      <div class="row">
+        <div class="col-md-4">
+          <div class="p-3">
+            <h5>Ventas: $${totalV.toFixed(2)}</h5>
+            <h6>Compras: $${totalC.toFixed(2)}</h6>
+            <h6>Resultado: $${(totalV-totalC).toFixed(2)}</h6>
+          </div>
+        </div>
+        <div class="col-md-8"><div style="width:100%;height:200px"><canvas id="r_chart"></canvas></div></div>
+      </div>`;
+  
+    const byMonth = {};
+    filtered.forEach(i=>{
+      const key = i.fecha ? i.fecha.slice(0,7) : 'Sin fecha';
+      byMonth[key] = (byMonth[key]||0) + (i.tipo==='Venta'? (+i.monto||0) : -(+i.monto||0));
+    });
+    const labels = Object.keys(byMonth).sort();
+    const data = labels.map(l=> byMonth[l]);
+  
+    if(rChartInstance){ try{ rChartInstance.destroy(); }catch(_){} }
+    const ctx = document.getElementById('r_chart')?.getContext('2d');
+    if(ctx){
+      rChartInstance = new Chart(ctx, {type:'bar', data:{labels, datasets:[{label:'Resultado por mes', data}]}, options:{responsive:true}});
+    }
+  });
+  
+  // ----------------------
+  // EXPORTAR TODO
+  // ----------------------
+  const btnExportAllJSON = document.getElementById('btnExportAllJSON');
+  if(btnExportAllJSON) btnExportAllJSON.addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify({invoices,clients,products},null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='erp_all.json'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  });
+  
+  const btnExportAllXLSX = document.getElementById('btnExportAllXLSX');
+  if(btnExportAllXLSX) btnExportAllXLSX.addEventListener('click', ()=>{
+    const wb = XLSX.utils.book_new();
+    const invData = [['Fecha','Numero','Documento','Cliente','Tipo','Monto'], ...invoices.map(i=>[i.fecha,i.numero,i.docType,i.clienteNombre,i.tipo,i.monto])];
+    const cliData = [['Nombre','Doc'], ...clients.map(c=>[c.nombre,c.doc])];
+    const prodData = [['Nombre','Precio'], ...products.map(p=>[p.nombre,p.precio])];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(invData),'Facturas');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cliData),'Clientes');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(prodData),'Productos');
+    XLSX.writeFile(wb,'erp_complete.xlsx');
+  });
+  
+  // ----------------------
+  // DASHBOARD / CHARTS
+  // ----------------------
+  function initCharts(){
+    const barCanvas = document.getElementById('chartBar');
+    const donutCanvas = document.getElementById('chartDonut');
+    const lineCanvas = document.getElementById('chartLine');
+    if(!barCanvas || !donutCanvas || !lineCanvas) return;
+  
+    const months = getLast12MonthsLabels();
+    const emptyData = new Array(months.length).fill(0);
+  
+    const ctxBar = barCanvas.getContext('2d');
+    const gradientVentas = ctxBar.createLinearGradient(0,0,0,200);
+    gradientVentas.addColorStop(0,'rgba(13,110,253,0.9)');
+    gradientVentas.addColorStop(1,'rgba(58,160,255,0.4)');
+    const gradientCompras = ctxBar.createLinearGradient(0,0,0,200);
+    gradientCompras.addColorStop(0,'rgba(220,53,69,0.9)');
+    gradientCompras.addColorStop(1,'rgba(255,107,107,0.4)');
+  
+    chartBar = new Chart(ctxBar, {
+      type:'bar',
+      data:{labels:months, datasets:[
+        {label:'Ventas', data:emptyData, backgroundColor:gradientVentas, borderColor:'rgba(13,110,253,1)', borderWidth:1},
+        {label:'Compras', data:emptyData, backgroundColor:gradientCompras, borderColor:'rgba(220,53,69,1)', borderWidth:1}
+      ]},
+      options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
+    });
+  
+    const ctxDonut = donutCanvas.getContext('2d');
+    chartDonut = new Chart(ctxDonut, {
+      type:'doughnut',
+      data:{labels:['Factura A','Factura B','Factura C','Nota Crédito','Nota Débito'], datasets:[{data:[0,0,0,0,0], backgroundColor:['#3aa0ff','#6f42c1','#fd7e14','#198754','#dc3545']}]},
+      options:{responsive:true, plugins:{legend:{position:'bottom'}}}
+    });
+  
+    const ctxLine = lineCanvas.getContext('2d');
+    chartLine = new Chart(ctxLine, {
+      type:'line',
+      data:{labels:getYearMonths(), datasets:[
+        {label:'Ventas', data:new Array(12).fill(0), borderColor:'#0d6efd', backgroundColor:'rgba(13,110,253,0.08)', tension:0.3, fill:true},
+        {label:'Compras', data:new Array(12).fill(0), borderColor:'#dc3545', backgroundColor:'rgba(220,53,69,0.06)', tension:0.3, fill:true}
+      ]},
+      options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
+    });
+  
+    updateDashboard();
+  }
+  
+  function getYearMonths(){ return ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']; }
+  function getLast12MonthsLabels(){ const res=[]; const now = new Date(); for(let i=11;i>=0;i--){ const d = new Date(now.getFullYear(), now.getMonth()-i,1); res.push(d.toLocaleString('es-AR',{month:'short', year:'numeric'})); } return res; }
+  
+  function updateDashboard(){
+    const ventas = invoices.filter(i=> i.tipo==='Venta').reduce((s,a)=>s+(+a.monto||0),0);
+    const compras = invoices.filter(i=> i.tipo==='Compra').reduce((s,a)=>s+(+a.monto||0),0);
+    const elTotalV = document.getElementById('totalVentas'); if(elTotalV) elTotalV.textContent = `$${ventas.toFixed(2)}`;
+    const elTotalC = document.getElementById('totalCompras'); if(elTotalC) elTotalC.textContent = `$${compras.toFixed(2)}`;
+    const elRes = document.getElementById('resultado'); if(elRes) elRes.textContent = `$${(ventas-compras).toFixed(2)}`;
+    const elDocs = document.getElementById('totalDocs'); if(elDocs) elDocs.textContent = invoices.length;
+  
+    // último mes
+    const lastMonthKey = new Date(); lastMonthKey.setMonth(lastMonthKey.getMonth()-1);
+    const lmKey = lastMonthKey.toISOString().slice(0,7);
+    const lastVentas = invoices.filter(i=> i.tipo==='Venta' && i.fecha && i.fecha.slice(0,7)===lmKey).reduce((s,a)=>s+(+a.monto||0),0);
+    const lastCompras = invoices.filter(i=> i.tipo==='Compra' && i.fecha && i.fecha.slice(0,7)===lmKey).reduce((s,a)=>s+(+a.monto||0),0);
+    const elLMV = document.getElementById('lastMonthVentas'); if(elLMV) elLMV.textContent = `$${lastVentas.toFixed(2)}`;
+    const elLMC = document.getElementById('lastMonthCompras'); if(elLMC) elLMC.textContent = `$${lastCompras.toFixed(2)}`;
+  
+    // bar (12 meses)
+    if(chartBar){
+      const months = getLast12MonthsLabels();
+      const ventasBy = new Array(months.length).fill(0);
+      const comprasBy = new Array(months.length).fill(0);
+      const now = new Date();
+      invoices.forEach(inv=>{
+        if(!inv.fecha) return;
+        const invDate = new Date(inv.fecha);
+        const diffMonths = (now.getFullYear()-invDate.getFullYear())*12 + (now.getMonth()-invDate.getMonth());
+        if(diffMonths>=0 && diffMonths<months.length){
+          const idx = months.length-1-diffMonths;
+          if(inv.tipo==='Venta') ventasBy[idx]+= (+inv.monto||0); else comprasBy[idx]+= (+inv.monto||0);
+        }
+      });
+      chartBar.data.labels = months;
+      chartBar.data.datasets[0].data = ventasBy;
+      chartBar.data.datasets[1].data = comprasBy;
+      try{ chartBar.update(); }catch(_){ }
+    }
+  
+    // donut (tipos doc)
+    if(chartDonut){
+      const types = ['Factura A','Factura B','Factura C','Nota Crédito','Nota Débito'];
+      const counts = types.map(t=> invoices.filter(i=> i.docType===t).length);
+      chartDonut.data.datasets[0].data = counts;
+      try{ chartDonut.update(); }catch(_){ }
+    }
+  
+    // línea (año actual)
+    if(chartLine){
+      const ventasYear = new Array(12).fill(0);
+      const comprasYear = new Array(12).fill(0);
+      const year = new Date().getFullYear();
+      invoices.forEach(inv=>{
+        if(!inv.fecha) return;
+        const d = new Date(inv.fecha);
+        if(d.getFullYear()!==year) return;
+        const m = d.getMonth();
+        if(inv.tipo==='Venta') ventasYear[m]+= (+inv.monto||0); else comprasYear[m]+= (+inv.monto||0);
+      });
+      chartLine.data.datasets[0].data = ventasYear;
+      chartLine.data.datasets[1].data = comprasYear;
+      try{ chartLine.update(); }catch(_){ }
+    }
+  }
+  
+  // ----------------------
+  // RENDER FACTURAS
+  // ----------------------
+  function renderFacturas() {
+    const tbody = document.getElementById('tblFacturas'); if(!tbody) return;
+    tbody.innerHTML = '';
+    invoices.forEach((inv, index)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${inv.fecha||''}</td>
+        <td>${inv.numero||''}</td>
+        <td>${inv.docType||''}</td>
+        <td>${inv.clienteNombre||''}</td>
+        <td>${inv.tipo||''}</td>
+        <td>$${(+inv.monto||0).toFixed(2)}</td>
+        <td>
+          <button class="btn btn-sm btn-warning btnEdit">Editar</button>
+          <button class="btn btn-sm btn-danger btnDelete">Eliminar</button>
+        </td>
+      `;
+      tr.querySelector('.btnEdit').addEventListener('click', ()=>{
+        document.getElementById('e_index').value = index;
+        document.getElementById('e_fecha').value = inv.fecha||'';
+        document.getElementById('e_numero').value = inv.numero||'';
+        document.getElementById('e_monto').value = inv.monto||0;
+        const modalEl = document.getElementById('editModal');
+        if(modalEl){ new bootstrap.Modal(modalEl).show(); }
+      });
+      tr.querySelector('.btnDelete').addEventListener('click', ()=>{
+        if(confirm('¿Eliminar esta factura?')){
+          invoices.splice(index,1);
+          saveAll();
+          renderFacturas();
+          updateDashboard();
+        }
+      });
+      tbody.appendChild(tr);
+    });
+  }
+  
+  function deleteFactura(i){
+    invoices.splice(i,1); saveAll(); renderFacturas(); updateDashboard();
+  }
+  
+  // ----------------------
+  // FORMULARIO AGREGAR MANUAL
+  // ----------------------
+  const formFactura = document.getElementById('formFactura');
+  if(formFactura) formFactura.addEventListener('submit', e=>{
+    e.preventDefault();
+    const fecha = document.getElementById('f_fecha').value;
+    const numero = document.getElementById('f_numero').value.trim();
+    const docType = document.getElementById('f_docType').value;
+    const tipo = document.getElementById('f_tipo').value;
+    const monto = parseFloat(document.getElementById('f_monto').value) || 0;
+  
+    // Cliente desde <select> por ID (¡arreglo clave!)
+    const sel = document.getElementById('f_cliente');
+    let clienteId = sel?.value || null;
+    let clienteNombre = 'Sin cliente';
+    if(clienteId){
+      const c = clients.find(x => String(x.id) === String(clienteId));
+      if(c){ clienteNombre = c.nombre; clienteId = c.id; } else { clienteId = null; }
+    }
+  
+    if(!fecha || !numero || !docType || !tipo){
+      alert('Faltan completar campos obligatorios'); return;
+    }
+  
+    invoices.push({
+      id: uid(),
+      fecha, numero, docType,
+      clienteId,
+      clienteNombre,
+      tipo, monto
+    });
+  
+    saveAll();
+    renderFacturas();
+    updateDashboard();
+    e.target.reset();
+  });
+  
+  // ----------------------
+  // FORMULARIO EDITAR
+  // ----------------------
+  const formEdit = document.getElementById('formEdit');
+  if(formEdit) formEdit.addEventListener('submit', e=>{
+    e.preventDefault();
+    const idx = parseInt(document.getElementById('e_index').value);
+    if(isNaN(idx) || !invoices[idx]) return;
+    invoices[idx].fecha = document.getElementById('e_fecha').value;
+    invoices[idx].numero = document.getElementById('e_numero').value.trim();
+    invoices[idx].monto = parseFloat(document.getElementById('e_monto').value) || 0;
+    saveAll();
+    renderFacturas();
+    updateDashboard();
+    const modalEl = document.getElementById('editModal');
+    if(modalEl){ bootstrap.Modal.getInstance(modalEl)?.hide(); }
+  });
+  
+  // ----------------------
+  // IMPORTAR EXCEL
+  // ----------------------
+  const importExcelFacturas = document.getElementById('importExcelFacturas');
+  if(importExcelFacturas){
+    importExcelFacturas.addEventListener('change', e=>{
+      const file = e.target.files[0];
+      if(!file) return;
+  
+      const reader = new FileReader();
+      reader.onload = function(ev){
+        const data = new Uint8Array(ev.target.result);
+        const workbook = XLSX.read(data, {type:'array'});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+        rows.slice(1).forEach(row=>{
+          if(row.length < 6) return;
+          let [fecha, numero, docType, clienteNombre, tipo, monto] = row;
+          let fechaStr = '';
+          if(fecha instanceof Date) fechaStr = fecha.toISOString().slice(0,10);
+          else if(typeof fecha==='number'){
+            const d = XLSX.SSF.parse_date_code(fecha);
+            fechaStr = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+          } else fechaStr = String(fecha||'').trim();
+  
+          numero = String(numero||'').trim();
+          docType = String(docType||'').trim();
+          clienteNombre = String(clienteNombre||'').trim();
+          tipo = String(tipo||'').trim();
+          monto = parseFloat(monto) || 0;
+          if(!fechaStr || !numero || !docType || !tipo) return;
+  
+          // vincular por nombre (si existe), si no, crear cliente nuevo
+          let cliente = clients.find(c => (c.nombre||'').toLowerCase() === clienteNombre.toLowerCase());
+          if(!cliente && clienteNombre){
+            cliente = {id: uid(), nombre: clienteNombre, doc: ''};
+            clients.push(cliente);
+          }
+  
+          invoices.push({
+            id: uid(),
+            fecha: fechaStr,
+            numero,
+            docType,
+            clienteId: cliente?.id || null,
+            clienteNombre: cliente?.nombre || clienteNombre || 'Sin cliente',
+            tipo,
+            monto
+          });
+        });
+        saveAll();
+        renderClientsSelect(); // por si se agregaron clientes
+        renderFacturas();
+        updateDashboard();
+        alert('Facturas importadas correctamente.');
+        importExcelFacturas.value = '';
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+  
+  // ----------------------
+  // BUSCADOR Y FILTRO
+  // ----------------------
+  const buscarFact = document.getElementById('buscarFact');
+  if(buscarFact) buscarFact.addEventListener('input', e=>{
+    const q = e.target.value.toLowerCase();
+    const tbody = document.getElementById('tblFacturas');
+    if(!tbody) return;
+    Array.from(tbody.rows).forEach(r=>{
+      r.style.display = Array.from(r.cells).some(c=>c.innerText.toLowerCase().includes(q)) ? '' : 'none';
+    });
+  });
+  
+  const filterTipo = document.getElementById('filterTipo');
+  if(filterTipo) filterTipo.addEventListener('change', e=>{
+    const tipo = e.target.value;
+    const tbody = document.getElementById('tblFacturas');
+    if(!tbody) return;
+    Array.from(tbody.rows).forEach(r=>{
+      r.style.display = (tipo === '' || r.cells[4].innerText === tipo) ? '' : 'none';
+    });
+  });
+  
+  // ----------------------
+  // EXPORTAR EXCEL (facturas)
+  // ----------------------
+  const btnExportFact = document.getElementById('btnExportFact');
+  if(btnExportFact) btnExportFact.addEventListener('click', ()=>{
+    const wb = XLSX.utils.book_new();
+    const wsData = [['Fecha','Número','Documento','Cliente','Tipo','Monto']];
+    invoices.forEach(inv=>{
+      wsData.push([inv.fecha,inv.numero,inv.docType,inv.clienteNombre,inv.tipo,inv.monto]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
+    XLSX.writeFile(wb, 'Facturas.xlsx');
+  });
+  
+  // ----------------------
+  // RENDER GENERAL
+  // ----------------------
+  function renderAll(){ renderClientsTable(); renderProductsTable(); renderFacturas(); updateDashboard(); }
+  
+  // ----------------------
+  // UTILIDADES
+  // ----------------------
+  function renderNav(){ const nav = document.querySelector('[data-section="dashboard"]'); if(nav) nav.classList.add('active'); }
+  
+  // actualizar UI cada vez que se modifica localStorage externo
+  window.addEventListener('storage', ()=>{
+    invoices = JSON.parse(localStorage.getItem(LS_KEYS.INVOICES)) || [];
+    clients  = JSON.parse(localStorage.getItem(LS_KEYS.CLIENTS)) || [];
+    products = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCTS)) || [];
+    renderAll();
+  });
+  </script>
+  
+</body>
+</html>
+
